@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sumpy"
+version = "0.1.0a1"
+description = "Python runtime facade for the Sum ecosystem."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "GPL-2.0-or-later" }
+authors = [{ name = "William Martinez Bas", email = "metfar@gmail.com" }]
+dependencies = ['sumcore>=0.1.0a1', 'sumdata>=0.1.0a1', 'sumplot>=0.1.0a1']
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3"]
+
+[project.scripts]
+sumPY = "sumpy.cli:main"
+sumpy = "sumpy.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sumpy*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
