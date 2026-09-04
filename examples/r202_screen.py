@@ -19,16 +19,17 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #  
-import sumpy;
-def test_exports_common_layers(): assert hasattr(sumpy,"dataset") and hasattr(sumpy,"PlotSpec");
+# sumPY r20.2: common aliases, dynamic text grid, cursor and graphics plane.
+from sumpy import *;
 
-def test_cli_version(capsys):
-    from sumpy.cli import main;
-    import pytest;
-    with pytest.raises(SystemExit) as exc: main(["--version"]);
-    assert exc.value.code==0; assert "sumPY 0.1.0a3" in capsys.readouterr().out;
+print("aliases:", TRUE, true, FALSE, false, NULL, NIL, none);
+print("text grid:", cols(), "x", rows());
+print("cursor hidden:", cursor(False));
+print("cursor normal:", cursor(True));
+print("cursor block:", cursor("block"));
+cursor(True);
 
-
-def test_histogram_png(tmp_path,monkeypatch):
-    monkeypatch.setenv("MPLBACKEND","Agg");
-    p=sumpy.ggplot(sumpy.dataset("mtcars"),sumpy.aes("mpg",sumpy.after_stat("density")))+sumpy.geom_histogram(binwidth=1,fill="#51A8C9"); target=tmp_path/"sumpy.png"; sumpy.ggsave(target,plot=p,width=4,height=3,dpi=80); assert target.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a");
+configure_graphics(lambda: (640, 480, 16));
+print("graphics:", gwidth(), "x", gheight(), "colors=", gcolors());
+print("GPRINT command:", gprint(20, 30, "sumPY graphics text"));
+print("GPRINTF command:", gprintf(20, 60, "size=%dx%d", gwidth(), gheight()));
