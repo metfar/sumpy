@@ -21,3 +21,14 @@
 #  
 import sumpy;
 def test_exports_common_layers(): assert hasattr(sumpy,"dataset") and hasattr(sumpy,"PlotSpec");
+
+def test_cli_version(capsys):
+    from sumpy.cli import main;
+    import pytest;
+    with pytest.raises(SystemExit) as exc: main(["--version"]);
+    assert exc.value.code==0; assert "sumPY 0.1.0a2" in capsys.readouterr().out;
+
+
+def test_histogram_png(tmp_path,monkeypatch):
+    monkeypatch.setenv("MPLBACKEND","Agg");
+    p=sumpy.ggplot(sumpy.dataset("mtcars"),sumpy.aes("mpg",sumpy.after_stat("density")))+sumpy.geom_histogram(binwidth=1,fill="#51A8C9"); target=tmp_path/"sumpy.png"; sumpy.ggsave(target,plot=p,width=4,height=3,dpi=80); assert target.read_bytes()[:8]==bytes.fromhex("89504e470d0a1a0a");

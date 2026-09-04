@@ -19,18 +19,11 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #  
-import subprocess;
-from sumdata import *;
-from sumplot import *;
-__version__="0.1.0a2";
+from sumpy import after_stat, aes, dataset, geom_histogram, ggsave, ggplot, show, system2;
 
-def show(plot,block=False,width=8,height=6,dpi=100): return show_plot(plot,block=block,width=width,height=height,dpi=dpi);
-def print_plot(plot,block=False,width=8,height=6,dpi=100): return show(plot,block=block,width=width,height=height,dpi=dpi);
-def system2(command,args=None,stdout=None,stderr=None,wait=True):
-    argv=[str(command)];
-    if args is not None:
-        if isinstance(args,(list,tuple)): argv.extend(str(item) for item in args);
-        else: argv.append(str(args));
-    out=subprocess.DEVNULL if stdout is False else None; err=subprocess.DEVNULL if stderr is False else None;
-    if wait: return subprocess.run(argv,stdout=out,stderr=err,check=False).returncode;
-    subprocess.Popen(argv,stdout=out,stderr=err,start_new_session=True); return 0;
+datacamp_light_blue = "#51A8C9";
+mtcars = dataset("mtcars");
+p = ggplot(mtcars, aes("mpg", after_stat("density"))) + geom_histogram(binwidth=1, fill=datacamp_light_blue);
+show(p, block=False);
+ggsave("mtcars_mpg_density_blue_sumpy.png", plot=p, width=8, height=6, dpi=150);
+system2("xdg-open", "mtcars_mpg_density_blue_sumpy.png", stdout=False, stderr=False, wait=False);
