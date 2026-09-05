@@ -22,7 +22,7 @@
 import subprocess;
 from sumdata import *;
 from sumplot import *;
-__version__="0.1.0a3";
+__version__="0.1.0a4";
 
 def show(plot,block=False,width=8,height=6,dpi=100): return show_plot(plot,block=block,width=width,height=height,dpi=dpi);
 def print_plot(plot,block=False,width=8,height=6,dpi=100): return show(plot,block=block,width=width,height=height,dpi=dpi);

@@ -23,3 +23,12 @@ def test_dynamic_grid_cursor_and_graphics_facade():
     assert isinstance(command,GraphicsCommand) and command.operation=="text" and command.arguments==(10,20,"x=7");
     sumpy.sort_layers("GRAPHICS","TEXT");
     assert commands[-1].operation=="sort_layers";
+
+
+def test_r2021_border_width_emits_common_command():
+    import sumpy.screen as screen;
+    seen=[]; screen.configure_graphics(handler=seen.append);
+    assert screen.border_width(18) == 18; assert screen.border_width() == 18;
+    assert seen[-1].operation == "border_width" and seen[-1].arguments == (18,);
+    screen.paper(0); screen.border(1);
+    assert [item.operation for item in seen[-2:]] == ["paper","border"];

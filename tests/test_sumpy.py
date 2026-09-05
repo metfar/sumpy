@@ -26,7 +26,7 @@ def test_cli_version(capsys):
     from sumpy.cli import main;
     import pytest;
     with pytest.raises(SystemExit) as exc: main(["--version"]);
-    assert exc.value.code==0; assert "sumPY 0.1.0a3" in capsys.readouterr().out;
+    assert exc.value.code==0; assert "sumPY 0.1.0a4" in capsys.readouterr().out;
 
 
 def test_histogram_png(tmp_path,monkeypatch):

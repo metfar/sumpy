@@ -33,3 +33,7 @@ configure_graphics(lambda: (640, 480, 16));
 print("graphics:", gwidth(), "x", gheight(), "colors=", gcolors());
 print("GPRINT command:", gprint(20, 30, "sumPY graphics text"));
 print("GPRINTF command:", gprintf(20, 60, "size=%dx%d", gwidth(), gheight()));
+
+paper(0);
+border(1);
+print("border width:", border_width(24));
