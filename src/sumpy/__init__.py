@@ -22,7 +22,8 @@
 import subprocess;
 from sumdata import *;
 from sumplot import *;
-__version__="0.1.0a4";
+from sumcore.audio_api import audio_engine, beep, play, set_audio_engine, sound, stop_audio, wait_audio;
+__version__="0.1.0a5";
 
 def show(plot,block=False,width=8,height=6,dpi=100): return show_plot(plot,block=block,width=width,height=height,dpi=dpi);
 def print_plot(plot,block=False,width=8,height=6,dpi=100): return show(plot,block=block,width=width,height=height,dpi=dpi);
