@@ -192,7 +192,8 @@ def draw_keyboard(screen: pygame.Surface, scale: List[int],
     hud_height = 26;
     pygame.draw.rect(screen, (45, 45, 45), pygame.Rect(0, 0, width, hud_height));
 
-    naturals = [m for m in scale if (m % 12) in NATURAL_STEPS];
+    display_scale = [m + octave_shift * 12 for m in scale];
+    naturals = [m for m in display_scale if (m % 12) in NATURAL_STEPS];
     white_count = len(naturals) if naturals else 1;
     white_width = width // white_count;
     white_height = height - hud_height;
@@ -211,7 +212,7 @@ def draw_keyboard(screen: pygame.Surface, scale: List[int],
         key_rects[midi] = rect;
         white_pos[midi] = idx;
 
-    for midi in scale:
+    for midi in display_scale:
         step = midi % 12;
         if step in NATURAL_STEPS:
             continue;
@@ -235,7 +236,9 @@ def draw_keyboard(screen: pygame.Surface, scale: List[int],
         label = font.render(name, True, (0, 0, 0));
         screen.blit(label, (rect.x + 4, rect.y + rect.height - 18));
 
-    base_text = f"Base MIDI={base_midi:+d}  Shift={octave_shift:+d}";
+    effective_base = base_midi + octave_shift * 12;
+    base_name = note_names[effective_base % 12] + str(effective_base // 12 - 1);
+    base_text = f"Base MIDI={effective_base:+d} ({base_name})  Shift={octave_shift:+d}";
     txt = font.render(base_text, True, (220, 220, 220));
     screen.blit(txt, (6, 4));
 
@@ -379,8 +382,7 @@ def main() -> None:
                             clicked_midi = midi;
                             break;
                 if clicked_midi is not None:
-                    base_midi = clicked_midi;
-                    midi = base_midi + octave_shift * 12;
+                    midi = clicked_midi;
                     snd = sounds.get(midi);
                     if snd is not None:
                         if midi in voices_by_midi:
