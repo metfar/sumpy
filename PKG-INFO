@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sumpy
-Version: 0.1.0a6
+Version: 0.1.0a7
 Summary: Python runtime facade for the Sum ecosystem.
 Author-email: William Martinez Bas <metfar@gmail.com>
 License: GPL-2.0-or-later
@@ -9,7 +9,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sumcore>=0.1.0a9
+Requires-Dist: sumcore>=0.1.0a10
 Requires-Dist: sumui>=0.1.0a13
 Requires-Dist: sumtui>=0.8.0a12
 Requires-Dist: sumdata>=0.1.0a2
@@ -30,8 +30,6 @@ sumpy examples/mtcars_mpg_density_blue.py
 ```
 
 It writes `mtcars_mpg_density_blue_sumpy.png`; for the reference histogram this output is generated from the same resolved plot as sumR.
-
-<p align=center><b>- oOo -</b></p>
 
 ## Graphical acceptance example
 
@@ -61,5 +59,9 @@ stop_audio();
 
 These are thin adapters over `sumcore.audio`; sumPY does not maintain a second
 synthesizer.
+
+<p align=center><b>- oOo -</b></p>
+
+Audio example: `examples/audio.py` demonstrates `beep()`, `sound()` and `play()` through the shared `sumcore` service.
 
 <p align=center><b>- oOo -</b></p>
