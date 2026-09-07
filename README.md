@@ -31,11 +31,14 @@ It writes `mtcars_mpg_density_blue_sumpy.png`; for the reference histogram this 
 ## Shared audio
 
 ```python
-from sumpy import beep, play, sound, stop_audio;
+from sumpy import beep, midi_frequency, play, sound, stop_audio, tone_wav_bytes;
 
 beep(.25, 12);
 sound(440, 18.2);
 play("T180O5cdefgabC");
+
+a4 = midi_frequency(69);
+wav = tone_wav_bytes(a4, .25, volume=.4);
 stop_audio();
 ```
 
@@ -44,6 +47,6 @@ synthesizer.
 
 <p align=center><b>- oOo -</b></p>
 
-Audio example: `examples/audio.py` demonstrates `beep()`, `sound()` and `play()` through the shared `sumcore` service.
+Audio examples: `examples/audio.py` demonstrates `beep()`, `sound()` and `play()` through the shared `sumcore` service. `examples/piano.py` keeps the original Pygame polyphonic keyboard/ADSR model but sources each note from the canonical Sum/BASIC generator through SumGUI.
 
 <p align=center><b>- oOo -</b></p>

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sumpy
-Version: 0.1.0a7
+Version: 0.1.0a8
 Summary: Python runtime facade for the Sum ecosystem.
 Author-email: William Martinez Bas <metfar@gmail.com>
 License: GPL-2.0-or-later
