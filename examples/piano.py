@@ -25,12 +25,13 @@ warnings.filterwarnings("ignore", category=UserWarning);
 
 import sys;
 import time;
-from typing import Dict, Tuple, List;
+from pathlib import Path;
+from typing import Dict, Tuple, List, Set, Optional;
 import argparse;
 
 import pygame;
 
-from sumpy import midi_frequency;
+from sumpy import load_piano_performance, midi_frequency, save_piano_performance;
 from sumgui.audio import tone_sound;
 
 
@@ -57,6 +58,33 @@ SHIFT_EQUIV = {
 };
 
 
+def _dialog_path(save: bool, current: Optional[Path] = None) -> Optional[Path]:
+    """Choose a SUM piano performance file; fall back cleanly when Tk is unavailable.""";
+    try:
+        import tkinter as tk;
+        from tkinter import filedialog;
+        root = tk.Tk();
+        root.withdraw();
+        try: root.attributes("-topmost", True);
+        except Exception: pass;
+        initialdir = str((current.parent if current is not None else Path.cwd()).resolve());
+        initialfile = current.name if current is not None else "performance.sumpiano.json";
+        filters = [("SUM Piano performance", "*.sumpiano.json"), ("SUM Piano readable", "*.sumpiano"), ("JSON", "*.json"), ("All files", "*")];
+        if save:
+            selected = filedialog.asksaveasfilename(title="Save SUM Piano performance", initialdir=initialdir, initialfile=initialfile, defaultextension=".sumpiano.json", filetypes=filters);
+        else:
+            selected = filedialog.askopenfilename(title="Load SUM Piano performance", initialdir=initialdir, filetypes=filters);
+        root.destroy();
+        return Path(selected).expanduser() if selected else None;
+    except Exception:
+        return current if current is not None else (Path.cwd() / "performance.sumpiano.json" if save else None);
+
+
+def _status_name(path: Path) -> str:
+    name = path.name;
+    return name if len(name) <= 26 else "..." + name[-23:];
+
+
 class SoundBank:
     """Lazy MIDI cache using the canonical Sum/BASIC tone generator.""";
     def __init__(self, duration: float = 3.0) -> None:
@@ -70,6 +98,58 @@ class SoundBank:
             snd = tone_sound(midi_frequency(midi), duration=self.duration, volume=SOURCE_VOLUME, sample_rate=SAMPLE_RATE);
             self.sounds[midi] = snd;
         return snd;
+
+
+def start_voice(voices: Dict[int, "Voice"], sounds: SoundBank, midi: int, now: float,
+                adsr: Tuple[float, float, float, float], volume: float) -> bool:
+    """Start one MIDI voice unless that note is already being held.""";
+    existing = voices.get(midi);
+    if existing is not None:
+        if existing.state != "release":
+            return False;
+        existing.channel.stop();
+        del voices[midi];
+    snd = sounds.get(midi);
+    if snd is None:
+        return False;
+    ch = pygame.mixer.find_channel(True);
+    if ch is None:
+        return False;
+    ch.set_volume(0.0);
+    ch.play(snd, loops=0);
+    voices[midi] = Voice(ch, midi, now, adsr, volume);
+    return True;
+
+
+def release_voice(voices: Dict[int, "Voice"], midi: int, now: float) -> None:
+    """Move one active MIDI voice into its ADSR release stage.""";
+    voice = voices.get(midi);
+    if voice is not None:
+        voice.note_off(now);
+
+
+def stop_voices(voices: Dict[int, "Voice"]) -> None:
+    """Stop and forget a group of voices immediately.""";
+    for voice in list(voices.values()):
+        voice.channel.stop();
+    voices.clear();
+
+
+def record_note_event(recorded: List[Dict[str, object]], record_start: float, now: float,
+                      midi: int, action: str) -> None:
+    """Append one timestamped key transition to the current take.""";
+    recorded.append({"time": max(0.0, now - record_start), "midi": int(midi), "event": action});
+
+
+def due_recorded_events(recorded: List[Dict[str, object]], start_index: int,
+                        elapsed: float) -> Tuple[int, List[Dict[str, object]]]:
+    """Return all recorded transitions whose timestamp has become due.""";
+    due: List[Dict[str, object]] = [];
+    index = int(start_index);
+    while index < len(recorded) and float(recorded[index]["time"]) <= elapsed:
+        due.append(recorded[index]);
+        index += 1;
+    return index, due;
 
 
 def build_scale(base_midi: int = 48, n_notes: int = 25) -> List[int]:
@@ -183,9 +263,9 @@ NATURAL_STEPS = (0, 2, 4, 5, 7, 9, 11);
 
 def draw_keyboard(screen: pygame.Surface, scale: List[int],
                   base_midi: int, octave_shift: int,
-                  pressed_notes: Dict[int, Voice],
+                  pressed_notes: Set[int],
                   recording: bool, rec_seconds: float,
-                  has_data: bool) -> Dict[int, pygame.Rect]:
+                  has_data: bool, status_text: str = "") -> Dict[int, pygame.Rect]:
     width, height = screen.get_size();
     screen.fill((30, 30, 30));
 
@@ -253,9 +333,11 @@ def draw_keyboard(screen: pygame.Surface, scale: List[int],
             rec_label = font.render(f"READY {rec_seconds:4.1f}s", True, (210, 210, 210));
         else:
             rec_label = font.render("IDLE", True, (180, 180, 180));
+    if status_text:
+        rec_label = font.render(status_text[:32], True, (220, 220, 220));
     screen.blit(rec_label, (rec_x + 15, 4));
 
-    help_text = "SPACE: REC/STOP   1: PLAY   +/-: octave   ESC: quit";
+    help_text = "SPACE REC   1 PLAY   ^S SAVE   ^O LOAD   +/- OCT   ESC";
     help_label = font.render(help_text, True, (180, 180, 180));
     screen.blit(help_label, (width // 2 - help_label.get_width() // 2, 4));
 
@@ -267,13 +349,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Piano interactivo SumPY/SumGUI con audio de sumCore.");
     parser.add_argument("--base-midi", type=int, default=48, help="Nota MIDI base para la tecla más grave.");
     parser.add_argument("--vol", type=float, default=BASE_VOLUME);
+    parser.add_argument("--performance", type=str, default=None, help="Load a .sumpiano.json performance at startup.");
     args = parser.parse_args();
 
     pygame.mixer.pre_init(frequency=SAMPLE_RATE, size=-16, channels=1, buffer=512);
     pygame.init();
 
     total_keys = len(KEYS_LEFT) + len(KEYS_RIGHT);
-    scale = build_scale(args.base_midi, n_notes=total_keys);
+    base_midi = int(args.base_midi);
+    scale = build_scale(base_midi, n_notes=total_keys);
     key_to_index = build_keymap();
     sounds = SoundBank(duration=3.0);
 
@@ -283,18 +367,42 @@ def main() -> None:
 
     octave_shift = 0;
     voices_by_midi: Dict[int, Voice] = {};
+    playback_voices: Dict[int, Voice] = {};
     pressed_keys: Dict[str, int] = {};
+    mouse_pressed_midi: Optional[int] = None;
+    playback_pressed: Set[int] = set();
     recording = False;
     record_start = 0.0;
-    recorded: List[Dict[str, float]] = [];
+    recorded: List[Dict[str, object]] = [];
     last_take_len = 0.0;
+    playback = False;
+    playback_start = 0.0;
+    playback_index = 0;
     adsr = (DEFAULT_ATTACK, DEFAULT_DECAY, DEFAULT_SUSTAIN_LEVEL, DEFAULT_RELEASE);
+    performance_path: Optional[Path] = Path(args.performance).expanduser() if args.performance else None;
+    status_text = "";
+    status_until = 0.0;
+
+    if performance_path is not None:
+        try:
+            perf = load_piano_performance(performance_path);
+            recorded = list(perf["events"]);
+            last_take_len = float(perf["duration"]);
+            base_midi = int(perf.get("base_midi", base_midi));
+            octave_shift = int(perf.get("octave_shift", 0));
+            scale = build_scale(base_midi, n_notes=total_keys);
+            status_text = "LOADED " + _status_name(performance_path);
+            status_until = time.monotonic() + 3.0;
+        except Exception as exc:
+            print(f"Load error: {exc}", file=sys.stderr);
+            status_text = "LOAD ERROR";
+            status_until = time.monotonic() + 3.0;
 
     key_rects: Dict[int, pygame.Rect] = {};
 
     running = True;
     while running:
-        now = time.time();
+        now = time.monotonic();
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False;
@@ -303,6 +411,61 @@ def main() -> None:
                 if event.key == pygame.K_ESCAPE:
                     running = False;
                     break;
+                mods = getattr(event, "mod", pygame.key.get_mods());
+                if (mods & pygame.KMOD_CTRL) and event.key == pygame.K_s:
+                    if recording:
+                        status_text = "STOP REC BEFORE SAVE";
+                        status_until = now + 3.0;
+                        continue;
+                    if not recorded:
+                        status_text = "NO TAKE TO SAVE";
+                        status_until = now + 3.0;
+                        continue;
+                    force_dialog = bool(mods & pygame.KMOD_SHIFT);
+                    target = None if force_dialog else performance_path;
+                    if target is None: target = _dialog_path(True, performance_path);
+                    if target is not None:
+                        try:
+                            json_path, _text_path = save_piano_performance(target, recorded, duration=last_take_len, base_midi=base_midi, octave_shift=octave_shift);
+                            performance_path = json_path;
+                            status_text = "SAVED " + _status_name(json_path);
+                            status_until = now + 3.0;
+                            print(f"Saved: {json_path}");
+                        except Exception as exc:
+                            print(f"Save error: {exc}", file=sys.stderr);
+                            status_text = "SAVE ERROR";
+                            status_until = now + 3.0;
+                    continue;
+                if (mods & pygame.KMOD_CTRL) and event.key == pygame.K_o:
+                    if recording:
+                        status_text = "STOP REC BEFORE LOAD";
+                        status_until = now + 3.0;
+                        continue;
+                    target = _dialog_path(False, performance_path);
+                    if target is not None:
+                        try:
+                            perf = load_piano_performance(target);
+                            stop_voices(playback_voices);
+                            stop_voices(voices_by_midi);
+                            playback = False;
+                            playback_index = 0;
+                            playback_pressed.clear();
+                            pressed_keys.clear();
+                            mouse_pressed_midi = None;
+                            recorded = list(perf["events"]);
+                            last_take_len = float(perf["duration"]);
+                            base_midi = int(perf.get("base_midi", base_midi));
+                            octave_shift = int(perf.get("octave_shift", 0));
+                            scale = build_scale(base_midi, n_notes=total_keys);
+                            performance_path = Path(target).expanduser();
+                            status_text = "LOADED " + _status_name(performance_path);
+                            status_until = now + 3.0;
+                            print(f"Loaded: {performance_path}");
+                        except Exception as exc:
+                            print(f"Load error: {exc}", file=sys.stderr);
+                            status_text = "LOAD ERROR";
+                            status_until = now + 3.0;
+                    continue;
                 if event.key in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS):
                     octave_shift += 1;
                     continue;
@@ -312,27 +475,29 @@ def main() -> None:
                 if event.key == pygame.K_SPACE:
                     if not recording:
                         recording = True;
+                        playback = False;
+                        playback_index = 0;
+                        playback_pressed.clear();
+                        stop_voices(playback_voices);
                         record_start = now;
                         recorded = [];
+                        last_take_len = 0.0;
                     else:
+                        held_notes = set(pressed_keys.values());
+                        if mouse_pressed_midi is not None:
+                            held_notes.add(mouse_pressed_midi);
+                        for held_midi in sorted(held_notes):
+                            record_note_event(recorded, record_start, now, held_midi, "off");
                         recording = False;
-                        if recorded:
-                            last_take_len = recorded[-1]["time"];
+                        last_take_len = now - record_start;
                     continue;
                 if event.key == pygame.K_1:
                     if recorded:
-                        base_t = recorded[0]["time"];
-                        for ev in recorded:
-                            delay = ev["time"] - base_t;
-                            time.sleep(max(0.0, delay));
-                            midi = ev["midi"];
-                            base_m = midi;
-                            snd = sounds.get(midi);
-                            if snd is not None:
-                                ch = pygame.mixer.find_channel(True);
-                                if ch is not None:
-                                    ch.set_volume(args.vol);
-                                    ch.play(snd, loops=0);
+                        stop_voices(playback_voices);
+                        playback_pressed.clear();
+                        playback = True;
+                        playback_start = now;
+                        playback_index = 0;
                     continue;
                 k = normalize_key(event, key_to_index);
                 if not k:
@@ -344,21 +509,11 @@ def main() -> None:
                     continue;
                 base_midi = scale[idx];
                 midi = base_midi + octave_shift * 12;
-                snd = sounds.get(midi);
-                if snd is None:
+                if not start_voice(voices_by_midi, sounds, midi, now, adsr, args.vol):
                     continue;
-                if midi in voices_by_midi:
-                    continue;
-                ch = pygame.mixer.find_channel(True);
-                if ch is None:
-                    continue;
-                ch.set_volume(0.0);
-                ch.play(snd, loops=0);
-                v = Voice(ch, midi, now, adsr, args.vol);
-                voices_by_midi[midi] = v;
                 pressed_keys[k] = midi;
                 if recording:
-                    recorded.append({"time": now - record_start, "midi": midi});
+                    record_note_event(recorded, record_start, now, midi, "on");
             if event.type == pygame.KEYUP:
                 k = normalize_key(event, key_to_index);
                 if not k:
@@ -366,9 +521,9 @@ def main() -> None:
                 midi = pressed_keys.pop(k, None);
                 if midi is None:
                     continue;
-                v = voices_by_midi.get(midi);
-                if v is not None:
-                    v.note_off(now);
+                release_voice(voices_by_midi, midi, now);
+                if recording:
+                    record_note_event(recorded, record_start, now, midi, "off");
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 x, y = event.pos;
                 clicked_midi = None;
@@ -383,43 +538,61 @@ def main() -> None:
                             break;
                 if clicked_midi is not None:
                     midi = clicked_midi;
-                    snd = sounds.get(midi);
-                    if snd is not None:
-                        if midi in voices_by_midi:
-                            continue;
-                        ch = pygame.mixer.find_channel(True);
-                        if ch is not None:
-                            ch.set_volume(0.0);
-                            ch.play(snd, loops=0);
-                            v = Voice(ch, midi, now, adsr, args.vol);
-                            voices_by_midi[midi] = v;
-                            if recording:
-                                recorded.append({"time": now - record_start, "midi": midi});
+                    if start_voice(voices_by_midi, sounds, midi, now, adsr, args.vol):
+                        mouse_pressed_midi = midi;
+                        if recording:
+                            record_note_event(recorded, record_start, now, midi, "on");
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                for v in list(voices_by_midi.values()):
-                    v.note_off(now);
+                if mouse_pressed_midi is not None:
+                    release_voice(voices_by_midi, mouse_pressed_midi, now);
+                    if recording:
+                        record_note_event(recorded, record_start, now, mouse_pressed_midi, "off");
+                    mouse_pressed_midi = None;
 
-        now = time.time();
-        for midi in list(voices_by_midi.keys()):
-            v = voices_by_midi[midi];
-            alive = v.update(now);
-            if not alive:
-                del voices_by_midi[midi];
+        now = time.monotonic();
+        if status_text and now >= status_until: status_text = "";
+        if playback:
+            playback_elapsed = now - playback_start;
+            playback_index, due_events = due_recorded_events(recorded, playback_index, playback_elapsed);
+            for ev in due_events:
+                midi = int(ev["midi"]);
+                action = str(ev.get("event", "on"));
+                if action == "off":
+                    playback_pressed.discard(midi);
+                    release_voice(playback_voices, midi, now);
+                else:
+                    if start_voice(playback_voices, sounds, midi, now, adsr, args.vol):
+                        playback_pressed.add(midi);
+            if playback_index >= len(recorded):
+                playback = False;
+
+        for voice_map in (voices_by_midi, playback_voices):
+            for midi in list(voice_map.keys()):
+                v = voice_map[midi];
+                alive = v.update(now);
+                if not alive:
+                    del voice_map[midi];
 
         if recording:
             rec_seconds = now - record_start;
         else:
             rec_seconds = last_take_len;
 
+        display_pressed = set(pressed_keys.values());
+        if mouse_pressed_midi is not None:
+            display_pressed.add(mouse_pressed_midi);
+        display_pressed.update(playback_pressed);
+
         key_rects = draw_keyboard(
             screen,
             scale,
-            args.base_midi,
+            base_midi,
             octave_shift,
-            voices_by_midi,
+            display_pressed,
             recording,
             rec_seconds,
             bool(recorded) or (not recording and last_take_len > 0.0),
+            status_text,
         );
         clock.tick(60);
 
