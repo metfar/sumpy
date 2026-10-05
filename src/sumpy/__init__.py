@@ -23,8 +23,10 @@ import subprocess;
 from sumdata import *;
 from sumplot import *;
 from sumcore.audio_api import audio_engine, beep, midi_frequency, play, set_audio_engine, sound, stop_audio, tone_pcm_bytes, tone_wav_bytes, wait_audio;
+from sumcore.text import repeat, left, right, mid, instr, find, ltrim, rtrim, trim, alltrim, like, ilike;
+from sumcore.formatting import numformat, dateformat, textformat, boolformat;
 from .piano_performance import load_piano_performance, midi_note_name, normalise_piano_performance, piano_performance_paths, render_piano_performance, save_piano_performance;
-__version__="0.1.0a9";
+__version__="0.1.0a10";
 
 def show(plot,block=False,width=8,height=6,dpi=100): return show_plot(plot,block=block,width=width,height=height,dpi=dpi);
 def print_plot(plot,block=False,width=8,height=6,dpi=100): return show(plot,block=block,width=width,height=height,dpi=dpi);

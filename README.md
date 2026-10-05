@@ -45,8 +45,19 @@ stop_audio();
 These are thin adapters over `sumcore.audio`; sumPY does not maintain a second
 synthesizer.
 
-<p align=center><b>- oOo -</b></p>
 
 Audio examples: `examples/audio.py` demonstrates `beep()`, `sound()` and `play()` through the shared `sumcore` service. `examples/piano.py` keeps the original Pygame polyphonic keyboard/ADSR model but sources each note from the canonical Sum/BASIC generator through SumGUI.
+
+## Shared helpers
+
+`sumpy` exposes the common sum text/format helpers directly: `repeat`, `mid`, `instr`, `trim`, `like`, `ilike`, `numformat`, `dateformat`, `textformat` and `boolformat`. String positions are zero-based.
+
+```python
+repeat("ab",3)
+mid("abcdef",0,1)
+instr("abcdef","cd")
+numformat(5,"$ 0000.00")
+boolformat(None,"NO|SI|OMITIDO")
+```
 
 <p align=center><b>- oOo -</b></p>
