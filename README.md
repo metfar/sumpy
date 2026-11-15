@@ -60,4 +60,29 @@ numformat(5,"$ 0000.00")
 boolformat(None,"NO|SI|OMITIDO")
 ```
 
+## CLI execution parity — 0.1.0a13
+
+`sumPY`/`sumpy` execute a Python script with its own directory at the front of
+`sys.path`, as `python script.py` does. This allows imports of sibling modules
+(e.g., `from _demo_catalog import run`) even when the command was installed as
+a console entry point in `~/.local/bin`. The current working directory remains
+unchanged. The caller's `sys.argv` and `sys.path` are restored if the interpreter
+returns or the executed script raises an exception.
+
+```bash
+cd sumtui/examples
+sumpy demo_hexview.py --snapshot
+sumpy demo_hexview.py --help
+sumpy --version
+sumpy -c 'print("SUM")'
+```
+
+Options **after** the script filename are passed to the script without being
+processed by the launcher, including `--help`, `--version`, and theme switches.
+Options **before** the filename belong to the common SUM CLI parser. `-c`
+executes inline Python and makes the current directory importable.
+
+This is a local fix for the source-path/import issue in 0.1.0a12; it does not
+change `sumUI`, `sumTUI` or the examples.
+
 <p align=center><b>- oOo -</b></p>
