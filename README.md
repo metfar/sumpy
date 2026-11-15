@@ -60,7 +60,7 @@ numformat(5,"$ 0000.00")
 boolformat(None,"NO|SI|OMITIDO")
 ```
 
-## CLI execution parity — 0.1.0a13
+## CLI execution parity — 0.1.0a14
 
 `sumPY`/`sumpy` execute a Python script with its own directory at the front of
 `sys.path`, as `python script.py` does. This allows imports of sibling modules
@@ -84,5 +84,25 @@ executes inline Python and makes the current directory importable.
 
 This is a local fix for the source-path/import issue in 0.1.0a12; it does not
 change `sumUI`, `sumTUI` or the examples.
+
+## Selective pygame startup warnings — 0.1.0a14
+
+When running scripts via `sumpy`, only these two known Pygame import notices
+are suppressed by default:
+
+- `RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it`
+- `UserWarning: pkg_resources is deprecated as an API` attributed to `pygame.pkgdata`
+
+All other warnings and all exceptions remain visible. Warning filters are in
+force only during `sumpy FILE.py` and `sumpy -c '...'`, and are restored at exit.
+For diagnostics, restore those two warnings without changing dependencies:
+
+```bash
+SUMPY_SHOW_PYGAME_WARNINGS=1 sumpy demo_bgi_compat.py
+```
+
+This is a warning-display policy, not an AVX2 optimization or a removal of
+`pkg_resources`. The latter belongs to the installed Pygame package, not SUM;
+its future compatibility depends on that package's resource-loading fallback.
 
 <p align=center><b>- oOo -</b></p>

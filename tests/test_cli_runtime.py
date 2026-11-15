@@ -37,7 +37,7 @@ def runtime(tmp_path):
     package.mkdir(parents=True);
     source = Path(__file__).resolve().parents[1] / "src" / "sumpy" / "cli.py";
     shutil.copy2(source, package / "cli.py");
-    (package / "__init__.py").write_text('__version__ = "0.1.0a13";\n', encoding="utf-8");
+    (package / "__init__.py").write_text('__version__ = "0.1.0a14";\n', encoding="utf-8");
     working = tmp_path / "other-directory";
     working.mkdir();
     examples = tmp_path / "project" / "examples";
@@ -84,7 +84,7 @@ def test_script_options_are_not_consumed_by_launcher(runtime, options):
 def test_launcher_version_remains_available(runtime):
     result = execute(runtime, "--version");
     assert result.returncode == 0;
-    assert result.stdout.strip() == "sumPY 0.1.0a13";
+    assert result.stdout.strip() == "sumPY 0.1.0a14";
 
 
 def test_run_command_imports_from_current_directory(runtime):
@@ -116,3 +116,66 @@ def test_import_path_and_argv_are_restored_on_exception(runtime):
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=False);
     assert proc.returncode == 0, proc.stderr;
     assert json.loads(proc.stdout.strip()) == [True, True];
+
+
+def _make_pygame_notice_script(runtime, target):
+    """Use a fake pygame.pkgdata to test policy without installing pygame.""";
+    examples = runtime["examples"];
+    package = examples / "pygame";
+    package.mkdir(exist_ok=True);
+    (package / "__init__.py").write_text("", encoding="utf-8");
+    (package / "pkgdata.py").write_text(
+        'import warnings;\n'
+        'warnings.warn("pkg_resources is deprecated as an API. See the setuptools docs", UserWarning);\n',
+        encoding="utf-8",
+    );
+    target.write_text(
+        'import warnings;\n'
+        'import pygame.pkgdata;\n'
+        'warnings.warn("Your system is avx2 capable but pygame was not built with support for it. Blits may be slow", RuntimeWarning);\n'
+        'warnings.warn("unrelated warning must remain visible", UserWarning);\n'
+        'warnings.warn("pkg_resources is deprecated as an API. From another module", UserWarning);\n'
+        'print("DONE");\n',
+        encoding="utf-8",
+    );
+
+
+def test_pygame_notices_are_selectively_suppressed(runtime):
+    script = runtime["examples"] / "pygame_warnings.py";
+    _make_pygame_notice_script(runtime, script);
+    proc = execute(runtime, str(script));
+    assert proc.returncode == 0, proc.stderr;
+    assert proc.stdout.strip() == "DONE";
+    assert "Your system is avx2 capable" not in proc.stderr;
+    assert "pygame/pkgdata.py" not in proc.stderr;
+    assert "unrelated warning must remain visible" in proc.stderr;
+    assert "From another module" in proc.stderr;
+
+
+def test_pygame_notice_opt_in_reenables_both(runtime):
+    script = runtime["examples"] / "pygame_warnings.py";
+    _make_pygame_notice_script(runtime, script);
+    runtime["env"]["SUMPY_SHOW_PYGAME_WARNINGS"] = "1";
+    proc = execute(runtime, str(script));
+    assert proc.returncode == 0, proc.stderr;
+    assert "Your system is avx2 capable" in proc.stderr;
+    assert "pkg_resources is deprecated as an API" in proc.stderr;
+    assert "unrelated warning must remain visible" in proc.stderr;
+
+
+def test_pygame_notices_are_suppressed_for_inline_command(runtime):
+    code = ('import warnings; '
+        'warnings.warn("Your system is avx2 capable but pygame was not built with support for it.", RuntimeWarning); '
+        'warnings.warn("please check disk", UserWarning);');
+    proc = execute(runtime, "-c", code);
+    assert proc.returncode == 0, proc.stderr;
+    assert "Your system is avx2 capable" not in proc.stderr;
+    assert "please check disk" in proc.stderr;
+
+
+def test_filter_does_not_hide_exceptions(runtime):
+    script = runtime["examples"] / "raises.py";
+    script.write_text('raise RuntimeError("this must not be hidden");\n', encoding="utf-8");
+    proc = execute(runtime, str(script));
+    assert proc.returncode != 0;
+    assert "this must not be hidden" in proc.stderr;

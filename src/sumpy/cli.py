@@ -20,11 +20,42 @@
 #  MA 02110-1301, USA.
 #  
 import argparse;
+from contextlib import contextmanager;
+import warnings;
 from sumui.cli import SumArgumentParser;
 import os;
 import runpy;
 import sys;
 from . import __version__;
+
+
+@contextmanager
+def _pygame_warnings():
+    """Hide only two known Pygame startup notices, never other warnings.
+
+    The filters are scoped to executed code, leaving the embedding process's
+    warning configuration unchanged. Use SUMPY_SHOW_PYGAME_WARNINGS=1 to inspect
+    both warnings without changing the application or system packages.
+    """;
+    if str(os.environ.get("SUMPY_SHOW_PYGAME_WARNINGS", "")).strip().casefold() in ("1", "yes", "true", "on"):
+        yield;
+        return;
+    with warnings.catch_warnings():
+        # Pygame's compiled blitter warning may be attributed to importlib.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"^Your system is avx2 capable but pygame was not built with support for it\.",
+            category=RuntimeWarning,
+        );
+        # Stacklevel attributes this deprecation to pygame.pkgdata:25.
+        warnings.filterwarnings(
+            "ignore",
+            message=r"^pkg_resources is deprecated as an API\.",
+            category=UserWarning,
+            module=r"^pygame\.pkgdata$",
+        );
+        yield;
+
 
 def _run_script(filename, arguments):
     """Execute a Python file with the same import-root rules as python FILE.""";
@@ -34,7 +65,8 @@ def _run_script(filename, arguments):
     try:
         sys.argv = [filename] + list(arguments);
         sys.path.insert(0, script_directory);
-        runpy.run_path(filename, run_name="__main__");
+        with _pygame_warnings():
+            runpy.run_path(filename, run_name="__main__");
         return 0;
     finally:
         sys.argv = previous_argv;
@@ -48,7 +80,8 @@ def _run_command(command, arguments):
     try:
         sys.argv = ["-c"] + list(arguments);
         sys.path.insert(0, "");
-        exec(compile(command, "<string>", "exec"), {"__name__": "__main__", "__package__": None, "__spec__": None});
+        with _pygame_warnings():
+            exec(compile(command, "<string>", "exec"), {"__name__": "__main__", "__package__": None, "__spec__": None});
         return 0;
     finally:
         sys.argv = previous_argv;

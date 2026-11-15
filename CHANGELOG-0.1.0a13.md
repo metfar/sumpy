@@ -1,4 +1,4 @@
-# sumPY 0.1.0a13 — CLI script-import compatibility
+# sumPY 0.1.0a14 — CLI script-import compatibility
 
 **Origin:** User report on 2026-11-15 while running
 `sumtui/examples/demo_hexview.py` with `sumpy`.
@@ -17,7 +17,7 @@ with an unchanged `sys.path`. Unlike `python demo_hexview.py`, it did not insert
 - Preserve and restore the caller's `sys.argv` and `sys.path`, including when
   the script raises an exception.
 - Make the working directory importable in inline `-c` mode.
-- Increment package and runtime version from 0.1.0a12 to 0.1.0a13.
+- Increment package and runtime version from 0.1.0a12 to 0.1.0a14.
 - Preserve the existing `SumArgumentParser` and SUM theme functionality.
 
 ## Tests
@@ -27,7 +27,7 @@ with an unchanged `sys.path`. Unlike `python demo_hexview.py`, it did not insert
 - The unchanged `demo_hexview.py` from `ver1.2.zip` completed successfully
   with `--snapshot`: exit code 0, 3029 bytes stdout, empty stderr.
 - Python syntax compilation passed.
-- Wheel `sumpy-0.1.0a13-py3-none-any.whl` built successfully.
+- Wheel `sumpy-0.1.0a14-py3-none-any.whl` built successfully.
 
 ## Not tested
 
