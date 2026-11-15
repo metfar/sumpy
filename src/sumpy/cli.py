@@ -20,12 +20,13 @@
 #  MA 02110-1301, USA.
 #  
 import argparse;
+from sumui.cli import SumArgumentParser;
 import runpy;
 import sys;
 from . import __version__;
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(prog="sumPY",description="SUM Python runtime facade.");
+    parser=SumArgumentParser(prog="sumPY",description="SUM Python runtime facade.");
     parser.add_argument("--version",action="version",version="sumPY {}".format(__version__));
     parser.add_argument("file",nargs="?"); parser.add_argument("-c","--command"); args,rest=parser.parse_known_args(argv);
     if args.command is not None: exec(compile(args.command,"<sumPY>","exec"),{"__name__":"__main__"}); return 0;

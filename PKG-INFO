@@ -9,7 +9,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sumcore>=0.1.0a10
+Requires-Dist: sumcore>=0.1.0a11
 Requires-Dist: sumui>=0.1.0a13
 Requires-Dist: sumtui>=0.8.0a12
 Requires-Dist: sumdata>=0.1.0a2

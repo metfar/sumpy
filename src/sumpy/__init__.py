@@ -26,7 +26,7 @@ from sumcore.audio_api import audio_engine, beep, midi_frequency, play, set_audi
 from sumcore.text import repeat, left, right, mid, instr, find, ltrim, rtrim, trim, alltrim, like, ilike;
 from sumcore.formatting import numformat, dateformat, textformat, boolformat;
 from .piano_performance import load_piano_performance, midi_note_name, normalise_piano_performance, piano_performance_paths, render_piano_performance, save_piano_performance;
-__version__="0.1.0a10";
+__version__="0.1.0a12";
 
 def show(plot,block=False,width=8,height=6,dpi=100): return show_plot(plot,block=block,width=width,height=height,dpi=dpi);
 def print_plot(plot,block=False,width=8,height=6,dpi=100): return show(plot,block=block,width=width,height=height,dpi=dpi);
