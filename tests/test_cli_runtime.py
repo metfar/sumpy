@@ -37,7 +37,7 @@ def runtime(tmp_path):
     package.mkdir(parents=True);
     source = Path(__file__).resolve().parents[1] / "src" / "sumpy" / "cli.py";
     shutil.copy2(source, package / "cli.py");
-    (package / "__init__.py").write_text('__version__ = "0.1.0a14";\n', encoding="utf-8");
+    (package / "__init__.py").write_text('__version__ = "0.1.0a15";\n', encoding="utf-8");
     working = tmp_path / "other-directory";
     working.mkdir();
     examples = tmp_path / "project" / "examples";
@@ -84,7 +84,7 @@ def test_script_options_are_not_consumed_by_launcher(runtime, options):
 def test_launcher_version_remains_available(runtime):
     result = execute(runtime, "--version");
     assert result.returncode == 0;
-    assert result.stdout.strip() == "sumPY 0.1.0a14";
+    assert result.stdout.strip() == "sumPY 0.1.0a15";
 
 
 def test_run_command_imports_from_current_directory(runtime):
@@ -179,3 +179,55 @@ def test_filter_does_not_hide_exceptions(runtime):
     proc = execute(runtime, str(script));
     assert proc.returncode != 0;
     assert "this must not be hidden" in proc.stderr;
+
+
+@pytest.mark.parametrize("option", ["--full-debug", "--fullDebug"])
+def test_full_debug_displays_known_warnings(runtime, option):
+    script = runtime["examples"] / "pygame_warnings.py";
+    _make_pygame_notice_script(runtime, script);
+    proc = execute(runtime, option, str(script));
+    assert proc.returncode == 0, proc.stderr;
+    assert "Your system is avx2 capable" in proc.stderr;
+    assert "pkg_resources is deprecated as an API" in proc.stderr;
+    assert "unrelated warning must remain visible" in proc.stderr;
+
+
+def test_full_debug_still_passes_flag_after_filename_to_script(runtime):
+    script = runtime["examples"] / "demo_hexview.py";
+    proc = execute(runtime, str(script), "--full-debug");
+    assert proc.returncode == 0, proc.stderr;
+    data = json.loads(proc.stdout.strip());
+    assert data["argv"][1:] == ["--full-debug"];
+
+
+def test_full_debug_covers_inline_source(runtime):
+    code = ('import warnings; '
+        'warnings.warn("Your system is avx2 capable but pygame was not built with support for it.", RuntimeWarning); '
+        'warnings.warn("another useful warning", UserWarning);');
+    proc = execute(runtime, "--fullDebug", "-c", code);
+    assert proc.returncode == 0, proc.stderr;
+    assert "Your system is avx2 capable" in proc.stderr;
+    assert "another useful warning" in proc.stderr;
+
+
+def test_warning_filter_state_is_restored_in_full_debug(runtime):
+    script = runtime["examples"] / "warns.py";
+    script.write_text('import warnings; warnings.warn("visible", UserWarning);\n', encoding="utf-8");
+    code = (
+        "import warnings; from sumpy.cli import main; "
+        "before=list(warnings.filters); main(['--full-debug', " + repr(str(script)) + "]); "
+        "assert warnings.filters==before; print('RESTORED');"
+    );
+    proc = subprocess.run([sys.executable, "-c", code], cwd=runtime["working"],
+        env=runtime["env"], text=True, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=15, check=False);
+    assert proc.returncode == 0, proc.stderr;
+    assert proc.stdout.strip() == "RESTORED";
+    assert "visible" in proc.stderr;
+
+
+def test_diagnostics_options_documented_in_help(runtime):
+    proc = execute(runtime, "--help");
+    assert proc.returncode == 0, proc.stderr;
+    assert "--full-debug" in proc.stdout;
+    assert "--fullDebug" in proc.stdout;

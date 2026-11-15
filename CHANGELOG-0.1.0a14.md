@@ -1,4 +1,4 @@
-# sumPY 0.1.0a14 — Selective Pygame warning policy
+# sumPY 0.1.0a15 — Selective Pygame warning policy
 
 - Ignore only Pygame's AVX2 build warning and the `pkg_resources` deprecation
   attributed to `pygame.pkgdata` during script execution.

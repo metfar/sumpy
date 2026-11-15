@@ -1,4 +1,4 @@
-# SUM CLI migration — sumpy 0.1.0a14
+# SUM CLI migration — sumpy 0.1.0a15
 
 The command-line entry points in this local development snapshot adopt the
 `sumui.cli.SumArgumentParser` contract where appropriate, retaining historical

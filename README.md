@@ -60,7 +60,7 @@ numformat(5,"$ 0000.00")
 boolformat(None,"NO|SI|OMITIDO")
 ```
 
-## CLI execution parity — 0.1.0a14
+## CLI execution parity — 0.1.0a15
 
 `sumPY`/`sumpy` execute a Python script with its own directory at the front of
 `sys.path`, as `python script.py` does. This allows imports of sibling modules
@@ -85,7 +85,7 @@ executes inline Python and makes the current directory importable.
 This is a local fix for the source-path/import issue in 0.1.0a12; it does not
 change `sumUI`, `sumTUI` or the examples.
 
-## Selective pygame startup warnings — 0.1.0a14
+## Selective pygame startup warnings — 0.1.0a15
 
 When running scripts via `sumpy`, only these two known Pygame import notices
 are suppressed by default:
@@ -104,5 +104,44 @@ SUMPY_SHOW_PYGAME_WARNINGS=1 sumpy demo_bgi_compat.py
 This is a warning-display policy, not an AVX2 optimization or a removal of
 `pkg_resources`. The latter belongs to the installed Pygame package, not SUM;
 its future compatibility depends on that package's resource-loading fallback.
+
+## Educational diagnostics — 0.1.0a15
+
+SUM interpreters prioritize the information needed for the lesson. Known,
+non-actionable third-party startup warnings may be hidden during normal
+execution, **without hiding Python exceptions, errors, or unrelated warnings**.
+The current `sumpy` implementation only filters Pygame's AVX2 build notice
+and the `pkg_resources` deprecation reported by `pygame.pkgdata`.
+
+For lessons and normal execution:
+
+```bash
+sumpy demo_bgi_compat.py
+```
+
+For maintenance or teaching the internals, explicitly request all warnings:
+
+```bash
+sumpy --full-debug demo_bgi_compat.py
+sumpy --fullDebug demo_bgi_compat.py
+sumpy --full-debug -c 'import warnings; warnings.warn("example")'
+```
+
+The option belongs to the interpreter **before** `FILE` or `-c`.
+Arguments after the script's filename are passed to that script unchanged:
+
+```bash
+sumpy demo_bgi_compat.py --full-debug  # belongs to the example, not sumpy
+```
+
+The legacy `SUMPY_SHOW_PYGAME_WARNINGS=1` environment switch still works.
+`--full-debug` additionally requests `warnings.simplefilter("always")` during
+script execution. Warning-filter state is restored afterward. Python exceptions
+retain their normal full tracebacks in both modes; this is not a catch-all
+error suppression mechanism and does not forcibly enable unrelated loggers.
+
+**Scope:** invoking the same file through `python demo.py` bypasses this
+interpreter and its filter. Other SUM interpreters can implement this same
+contract independently; they are not changed by this sumPY release.
 
 <p align=center><b>- oOo -</b></p>

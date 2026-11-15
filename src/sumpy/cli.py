@@ -30,17 +30,23 @@ from . import __version__;
 
 
 @contextmanager
-def _pygame_warnings():
-    """Hide only two known Pygame startup notices, never other warnings.
+def _runtime_warnings(full_debug=False):
+    """Educational display policy for interpreter-managed code.
 
-    The filters are scoped to executed code, leaving the embedding process's
-    warning configuration unchanged. Use SUMPY_SHOW_PYGAME_WARNINGS=1 to inspect
-    both warnings without changing the application or system packages.
+    Normal mode filters only two known non-actionable third-party notices.
+    --full-debug/--fullDebug makes every Python warning visible inside the
+    script, irrespective of a previous warning filter. Neither mode catches
+    exceptions or hides errors. The parent process warning state is restored.
+    The historical SUMPY_SHOW_PYGAME_WARNINGS switch remains available.
     """;
-    if str(os.environ.get("SUMPY_SHOW_PYGAME_WARNINGS", "")).strip().casefold() in ("1", "yes", "true", "on"):
-        yield;
-        return;
     with warnings.catch_warnings():
+        if full_debug:
+            warnings.simplefilter("always");
+            yield;
+            return;
+        if str(os.environ.get("SUMPY_SHOW_PYGAME_WARNINGS", "")).strip().casefold() in ("1", "yes", "true", "on"):
+            yield;
+            return;
         # Pygame's compiled blitter warning may be attributed to importlib.
         warnings.filterwarnings(
             "ignore",
@@ -57,7 +63,7 @@ def _pygame_warnings():
         yield;
 
 
-def _run_script(filename, arguments):
+def _run_script(filename, arguments, full_debug=False):
     """Execute a Python file with the same import-root rules as python FILE.""";
     previous_argv = sys.argv;
     previous_path = sys.path[:];
@@ -65,7 +71,7 @@ def _run_script(filename, arguments):
     try:
         sys.argv = [filename] + list(arguments);
         sys.path.insert(0, script_directory);
-        with _pygame_warnings():
+        with _runtime_warnings(full_debug=full_debug):
             runpy.run_path(filename, run_name="__main__");
         return 0;
     finally:
@@ -73,14 +79,14 @@ def _run_script(filename, arguments):
         sys.path[:] = previous_path;
 
 
-def _run_command(command, arguments):
+def _run_command(command, arguments, full_debug=False):
     """Execute -c with the current working directory available for imports.""";
     previous_argv = sys.argv;
     previous_path = sys.path[:];
     try:
         sys.argv = ["-c"] + list(arguments);
         sys.path.insert(0, "");
-        with _pygame_warnings():
+        with _runtime_warnings(full_debug=full_debug):
             exec(compile(command, "<string>", "exec"), {"__name__": "__main__", "__package__": None, "__spec__": None});
         return 0;
     finally:
@@ -91,6 +97,8 @@ def _run_command(command, arguments):
 def main(argv=None):
     parser = SumArgumentParser(prog="sumPY", description="SUM Python runtime facade.");
     parser.add_argument("--version", action="version", version="sumPY {}".format(__version__));
+    parser.add_argument("--full-debug", "--fullDebug", dest="full_debug", action="store_true",
+                        help="show all Python warnings for diagnostics (before FILE or -c)");
     parser.add_argument("-c", "--command", help="execute Python source provided as a string");
     parser.add_argument("file", nargs="?", help="Python source file to execute");
     # After FILE all arguments belong to the script, including -h/--help,
@@ -102,11 +110,11 @@ def main(argv=None):
         if args.file is not None:
             tail.append(args.file);
         tail.extend(args.script_args);
-        return _run_command(args.command, tail);
+        return _run_command(args.command, tail, full_debug=args.full_debug);
     if not args.file:
         parser.print_help();
         return 0;
-    return _run_script(args.file, list(unknown) + args.script_args);
+    return _run_script(args.file, list(unknown) + args.script_args, full_debug=args.full_debug);
 
 
 if __name__ == "__main__":
